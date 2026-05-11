@@ -1450,7 +1450,7 @@ function buildDocsPanel() {
         </div>
       </a>`).join('');
 }
-document.getElementById('docs-search').addEventListener('input', e => { docsSearch=e.target.value; buildDocsPanel(); });
+document.getElementById('docs-search')?.addEventListener('input', e => { docsSearch=e.target.value; buildDocsPanel(); });
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CHAT PANEL
