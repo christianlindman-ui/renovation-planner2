@@ -1755,7 +1755,7 @@ function drawElevation() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// FLOOR PLAN DRAWING (Planskiss)
+// FLOOR PLAN DRAWING (Planskiss) — L-formad byggnadspolygon
 // ══════════════════════════════════════════════════════════════════════════════
 function drawFloorPlan(floor) {
   const canvas = document.getElementById('plan-canvas');
@@ -1768,71 +1768,112 @@ function drawFloorPlan(floor) {
   ctx.fillStyle = '#1B2A3B';
   ctx.fillRect(0, 0, W, H);
 
-  const FSCALE = Math.min((W - 60) / 13, (H - 60) / 13);
-  const ox = (W - 13 * FSCALE) / 2;
-  const oy = (H - 13 * FSCALE) / 2;
+  // Byggnadsmått i meter (x = Ö-V, y = N-S)
+  const mW = PROP.buildingW;          // 8.2m — huvudkroppens E-V-bredd
+  const mD = PROP.buildingD;          // 9.8m — huvudkroppens N-S-djup
+  const eW = PROP.extW;               // 4.2m — utbyggnadens E-V-bredd
+  const eD = PROP.extD;               // 6.4m — utbyggnadens N-S-djup
+  const eStart = mD - eD;             // 3.4m — var utbyggnaden börjar (norrifrån)
+  const totalW = mW + eW;             // 12.4m — total E-V-bredd
 
+  const margin = 44;
+  const FSCALE = Math.min((W - margin * 2) / totalW, (H - margin * 2) / mD);
+  const ox = (W - totalW * FSCALE) / 2;
+  const oy = (H - mD * FSCALE) / 2;
+  const px = x => ox + x * FSCALE;
+  const py = y => oy + y * FSCALE;
+
+  // Rum per våningsplan — koordinater i meter från NV-hörn (x=Ö-V, y=N-S)
   const plans = {
     ground: [
-      { label: 'Hall', x: 0, y: 0, w: 4, h: 3, color: '#243447' },
-      { label: 'Vardagsrum', x: 0, y: 3, w: 7, h: 5, color: '#1a3050' },
-      { label: 'Kök', x: 7, y: 0, w: 6, h: 4, color: '#1e3a2a' },
-      { label: 'Matsal', x: 7, y: 4, w: 6, h: 4, color: '#1a3050' },
-      { label: 'Sovrum', x: 0, y: 8, w: 6, h: 5, color: '#2a1e3a' },
-      { label: 'Badrum', x: 6, y: 8, w: 4, h: 5, color: '#1e2a3a' },
-      { label: 'WC', x: 10, y: 8, w: 3, h: 5, color: '#1e2a3a' },
-      { label: 'Sovrum 2', x: 4, y: 0, w: 3, h: 3, color: '#2a1e3a' },
+      { label: 'Hall',          x: 0,   y: 0,      w: 3.5, h: eStart,      color: '#243447' },
+      { label: 'Sovrum 2',      x: 3.5, y: 0,      w: 4.7, h: eStart,      color: '#2a1e3a' },
+      { label: 'Vardagsrum',    x: 0,   y: eStart,  w: 5.0, h: eD,          color: '#1a3050' },
+      { label: 'Kök',           x: 5.0, y: eStart,  w: 3.2, h: eD * 0.55,   color: '#1e3a2a' },
+      { label: 'Badrum / WC',   x: 5.0, y: eStart + eD * 0.55, w: 3.2, h: eD * 0.45, color: '#1e2a3a' },
+      { label: 'Allrum',        x: mW,  y: eStart,  w: eW,  h: eD,          color: '#1a3050' },
     ],
     upper: [
-      { label: 'Sovrum 3', x: 0, y: 0, w: 6, h: 6, color: '#2a1e3a' },
-      { label: 'Sovrum 4', x: 7, y: 0, w: 6, h: 6, color: '#2a1e3a' },
-      { label: 'Badrum', x: 0, y: 6, w: 5, h: 4, color: '#1e2a3a' },
-      { label: 'Hall/trappa', x: 5, y: 6, w: 8, h: 4, color: '#243447' },
-      { label: '(Planeras)', x: 0, y: 10, w: 13, h: 3, color: '#1B2A3B', dashed: true },
+      { label: 'Sovrum 3',      x: 0,   y: 0,      w: mW / 2, h: mD / 2,   color: '#2a1e3a' },
+      { label: 'Sovrum 4',      x: mW/2,y: 0,      w: mW / 2, h: mD / 2,   color: '#2a1e3a' },
+      { label: 'Badrum',        x: 0,   y: mD / 2, w: mW * 0.4, h: mD / 2, color: '#1e2a3a' },
+      { label: 'Hall / trappa', x: mW*0.4, y: mD/2, w: mW*0.6, h: mD/2,    color: '#243447' },
+      { label: 'Utbyggnad\n(planeras)', x: mW, y: eStart, w: eW, h: eD,     color: '#1B2A3B', dashed: true },
     ],
     basement: [
-      { label: 'Garage', x: 0, y: 0, w: 7, h: 7, color: '#2a2a1e' },
-      { label: 'Tvättstuga', x: 7, y: 0, w: 6, h: 5, color: '#1e2a2a' },
-      { label: 'Förråd', x: 7, y: 5, w: 6, h: 4, color: '#243447' },
-      { label: 'Teknikrum', x: 0, y: 7, w: 7, h: 6, color: '#1e2a2a' },
-      { label: 'BIA 72 m²', x: 0, y: 10, w: 13, h: 3, color: 'transparent', dashed: true },
+      { label: 'Garage',        x: 0,   y: 0,      w: mW * 0.6, h: mD,      color: '#2a2a1e' },
+      { label: 'Tvättstuga',    x: mW*0.6, y: 0,   w: mW*0.4, h: mD * 0.5,  color: '#1e2a2a' },
+      { label: 'Teknikrum',     x: mW*0.6, y: mD*0.5, w: mW*0.4, h: mD*0.5, color: '#1e2a2a' },
+      { label: 'Förråd',        x: mW,  y: eStart, w: eW,  h: eD,           color: '#243447' },
     ],
   };
 
+  // Rita L-formad bakgrund
+  function drawLShape() {
+    ctx.beginPath();
+    ctx.moveTo(px(0),      py(0));
+    ctx.lineTo(px(mW),     py(0));
+    ctx.lineTo(px(mW),     py(eStart));
+    ctx.lineTo(px(totalW), py(eStart));
+    ctx.lineTo(px(totalW), py(mD));
+    ctx.lineTo(px(0),      py(mD));
+    ctx.closePath();
+  }
+
+  drawLShape();
+  ctx.fillStyle = '#0f1922';
+  ctx.fill();
+
+  // Rum
   const rooms = plans[floor] || plans.ground;
-
-  ctx.strokeStyle = '#4a6280';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(ox, oy, 13 * FSCALE, 13 * FSCALE);
-
   rooms.forEach(room => {
-    const rx = ox + room.x * FSCALE;
-    const ry = oy + room.y * FSCALE;
-    const rw = room.w * FSCALE;
-    const rh = room.h * FSCALE;
-
+    const rx = px(room.x), ry = py(room.y);
+    const rw = room.w * FSCALE, rh = room.h * FSCALE;
     if (room.color !== 'transparent') {
       ctx.fillStyle = room.color;
       ctx.fillRect(rx, ry, rw, rh);
     }
-
     ctx.strokeStyle = room.dashed ? '#2D3E52' : '#3a5470';
     ctx.lineWidth = 1.5;
-    if (room.dashed) { ctx.setLineDash([4, 3]); } else { ctx.setLineDash([]); }
+    ctx.setLineDash(room.dashed ? [4, 3] : []);
     ctx.strokeRect(rx, ry, rw, rh);
     ctx.setLineDash([]);
 
+    const fs = Math.max(9, Math.min(11, FSCALE * 0.75));
     ctx.fillStyle = room.dashed ? '#475569' : '#94a3b8';
-    ctx.font = Math.max(9, Math.min(11, FSCALE * 0.7)) + 'px Inter, sans-serif';
+    ctx.font = fs + 'px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(room.label, rx + rw / 2, ry + rh / 2);
+    const lines = room.label.split('\n');
+    lines.forEach((line, i) => {
+      ctx.fillText(line, rx + rw / 2, ry + rh / 2 + (i - (lines.length - 1) / 2) * (fs + 2));
+    });
   });
 
-  ctx.fillStyle = '#475569';
+  // L-formad yttervägg överst
+  drawLShape();
+  ctx.strokeStyle = '#4a6280';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([]);
+  ctx.stroke();
+
+  // Skalstreck
+  const scaleM = 4, scaleW = scaleM * FSCALE;
+  const sx = W - margin - scaleW, sy = H - 18;
+  ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy); ctx.lineTo(sx + scaleW, sy);
+  ctx.moveTo(sx, sy - 4); ctx.lineTo(sx, sy + 4);
+  ctx.moveTo(sx + scaleW, sy - 4); ctx.lineTo(sx + scaleW, sy + 4);
+  ctx.stroke();
+  ctx.fillStyle = '#64748b';
   ctx.font = '10px Inter, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'top';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(scaleM + ' m', sx + scaleW / 2, sy + 5);
+
+  // Norr
+  ctx.fillStyle = '#475569'; ctx.font = '10px Inter, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'top';
   ctx.fillText('N ↑', W - 10, 10);
 }
 
