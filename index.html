@@ -1958,23 +1958,18 @@ setTimeout(resizeArcCanvas, 200);
 
   // ── OSM fetch ────────────────────────────────────────────────────────────────
   async function fetchBuildingData(address) {
-    // 1. Geocode via Nominatim
-    const geoUrl = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(address);
-    const geoRes = await fetch(geoUrl, { headers: { 'Accept-Language': 'sv' } });
-    const geo = await geoRes.json();
-    if (!geo.length) throw new Error('Adressen hittades inte');
-    const lat = parseFloat(geo[0].lat);
-    const lng = parseFloat(geo[0].lon);
-    const displayName = geo[0].display_name;
-
-    // 2. Fetch closest building polygon from Overpass
-    const query = `[out:json][timeout:10];way["building"](around:40,${lat},${lng});out geom tags;`;
-    const ovRes = await fetch('https://overpass-api.de/api/interpreter', {
+    // Route through serverless proxy to avoid CORS issues
+    const proxyRes = await fetch('/api/geocode', {
       method: 'POST',
-      body: 'data=' + encodeURIComponent(query),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
     });
-    const ovData = await ovRes.json();
-    const buildings = (ovData.elements || []).filter(e => e.geometry && e.geometry.length > 2);
+    if (!proxyRes.ok) {
+      const err = await proxyRes.json().catch(() => ({}));
+      throw new Error(err.error || 'Kunde inte hämta data');
+    }
+    const { lat, lng, displayName, elements } = await proxyRes.json();
+    const buildings = (elements || []).filter(e => e.geometry && e.geometry.length > 2);
 
     let polygon = null;
     let tags = {};
