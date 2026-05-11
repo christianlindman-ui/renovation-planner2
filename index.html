@@ -1130,9 +1130,16 @@ function drawSunScene(height) {
   // Driveway (från gate till huset, längs västra sidan)
   ctx.fillStyle='#b0b8a0'; ctx.fillRect(HOUSE_X, PLOT_Y, 5*SCALE, HOUSE_Y - PLOT_Y);
 
-  // Garden
-  ctx.fillStyle='#8fc870'; ctx.fillRect(GARDEN_X,GARDEN_Y,GW,GH);
-  ctx.fillStyle='#c0b890'; ctx.fillRect(GARDEN_X+GW/2-6, GARDEN_Y, 12, GH);
+  // Garden — placeras dynamiskt söder om polygonens faktiska sydkant
+  const polyMinX = Math.min(...BUILDING_PTS.map(p => p.x));
+  const polyMaxX = Math.max(...BUILDING_PTS.map(p => p.x));
+  const polyMaxY = Math.max(...BUILDING_PTS.map(p => p.y));
+  const gardenX = polyMinX;
+  const gardenY = polyMaxY + 3 * SCALE;
+  const gardenW = polyMaxX - polyMinX;
+  const gardenH = PROP.gardenD * SCALE;
+  ctx.fillStyle='#8fc870'; ctx.fillRect(gardenX, gardenY, gardenW, gardenH);
+  ctx.fillStyle='#c0b890'; ctx.fillRect(gardenX + gardenW/2 - 6, gardenY, 12, gardenH);
 
   // Shadow (använder faktisk byggnadspolygon från Lantmäteriet/OSM)
   if (!isNight && pos.altitude > 0.02) {
@@ -2015,11 +2022,8 @@ setTimeout(resizeArcCanvas, 200);
         y: HOUSE_Y + p.y * SCALE,
       }));
       BUILDING_PTS.splice(0, BUILDING_PTS.length, ...newPts);
-      // Derive bounding-box dimensions
-      const xs = data.polygon.map(p => p.x), ys = data.polygon.map(p => p.y);
-      PROP.buildingW = Math.round((Math.max(...xs)) * 10) / 10;
-      PROP.buildingD = Math.round((Math.max(...ys)) * 10) / 10;
-      PROP.footprint = Math.round(PROP.buildingW * PROP.buildingD * 0.85);
+      // Note: buildingW/buildingD are NOT updated from OSM — they come from user
+      // input in onboarding step 3 to avoid distortion from rotated polygons.
     }
     if (data.tags['start_date']) {
       const yr = parseInt(data.tags['start_date']);
