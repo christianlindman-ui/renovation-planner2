@@ -1679,7 +1679,8 @@ function buildSpecPanel() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ELEVATION DRAWING (Konceptskiss)
+// ELEVATION DRAWING — ritningsstil (blueprint)
+// Baserad på faktiskt utseende: rött trähus 1935, sadeltak, utbyggnad öster
 // ══════════════════════════════════════════════════════════════════════════════
 function drawElevation() {
   const canvas = document.getElementById('sketch-canvas');
@@ -1690,96 +1691,222 @@ function drawElevation() {
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  ctx.fillStyle = '#1B2A3B';
+  // ── Bakgrund: blueprint-blå med rutnät ──
+  ctx.fillStyle = '#0d2b6e';
   ctx.fillRect(0, 0, W, H);
 
-  const sky = ctx.createLinearGradient(0, 0, 0, H * 0.6);
-  sky.addColorStop(0, '#0d2137');
-  sky.addColorStop(1, '#1B2A3B');
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, W, H * 0.6);
+  // Subtilt rutnät
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 0.5;
+  const grid = 20;
+  for (let x = 0; x < W; x += grid) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += grid) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
 
-  ctx.fillStyle = '#2d3e2d';
-  ctx.fillRect(0, H * 0.72, W, H * 0.28);
+  // ── Proportioner ──
+  // Huset är västfasad: huvudkropp 8.2m bred, 7.5m hög
+  // Utbyggnad (öster/höger): 4.2m bred, ca 4.5m hög (lägre pulpettak)
+  const totalMW = PROP.buildingW + PROP.extW;  // 12.4m
+  const MSCALE = Math.min((W - 120) / (totalMW + 2), (H - 80) / 10);
+  const groundY = H * 0.78;
 
-  const MSCALE = Math.min(W / 22, H / 14);
-  const groundY = H * 0.72;
-  const houseW = PROP.buildingW * MSCALE;
-  const houseH = PROP.currentH * MSCALE;
-  const houseX = (W - houseW) / 2;
-  const houseY = groundY - houseH;
+  const mainW  = PROP.buildingW * MSCALE;
+  const mainH  = PROP.currentH  * MSCALE;
+  const extW   = PROP.extW      * MSCALE;
+  const extH   = (PROP.currentH * 0.62) * MSCALE;  // utbyggnaden är lägre
 
-  ctx.fillStyle = '#455a64';
-  ctx.fillRect(houseX, houseY, houseW, houseH);
+  const totalPxW = mainW + extW;
+  const startX = (W - totalPxW) / 2;
+  const mainX  = startX;
+  const extX   = startX + mainW;
+  const mainY  = groundY - mainH;
+  const extY   = groundY - extH;
 
-  ctx.fillStyle = '#b0d4e8';
-  for (let row = 0; row < 2; row++) {
-    for (let col = 0; col < 3; col++) {
-      const wx = houseX + (col + 0.5) * (houseW / 3) - 14;
-      const wy = houseY + (row === 0 ? houseH * 0.2 : houseH * 0.55);
-      ctx.fillRect(wx, wy, 28, 20);
-    }
+  const lw  = 1.5;  // normal linjebredd
+  const lw2 = 2.5;  // konturlinje
+
+  function bp(style, width, dash) {
+    ctx.strokeStyle = style || 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = width || lw;
+    ctx.setLineDash(dash || []);
   }
 
-  ctx.fillStyle = '#37474f';
-  ctx.fillRect(houseX + houseW / 2 - 12, groundY - 36, 24, 36);
+  function dim(x1, y1, x2, y2, label, side) {
+    // Måttlinje
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    if (side === 'h') {
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y1);
+      ctx.moveTo(x1, y1 - 5); ctx.lineTo(x1, y1 + 5);
+      ctx.moveTo(x2, y1 - 5); ctx.lineTo(x2, y1 + 5);
+    } else {
+      ctx.moveTo(x1, y1); ctx.lineTo(x1, y2);
+      ctx.moveTo(x1 - 5, y1); ctx.lineTo(x1 + 5, y1);
+      ctx.moveTo(x1 - 5, y2); ctx.lineTo(x1 + 5, y2);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.font = '9px Inter, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (side === 'h') ctx.fillText(label, (x1+x2)/2, y1 - 10);
+    else ctx.fillText(label, x1 - 18, (y1+y2)/2);
+  }
 
-  const roofH = houseW * 0.35;
-  ctx.fillStyle = '#8d4a2e';
+  // ── Mark / grundlinje ──
+  bp('rgba(255,255,255,0.3)', 1);
+  ctx.beginPath(); ctx.moveTo(startX - 30, groundY); ctx.lineTo(startX + totalPxW + 30, groundY); ctx.stroke();
+  // Markhatch
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 0.8;
+  for (let i = 0; i < 8; i++) {
+    const hx = startX - 20 + i * ((totalPxW + 50) / 7);
+    ctx.beginPath(); ctx.moveTo(hx, groundY); ctx.lineTo(hx - 8, groundY + 10); ctx.stroke();
+  }
+
+  // ── Utbyggnad (höger, lägre) ──
+  // Kropp
+  bp('rgba(255,255,255,0.9)', lw2);
+  ctx.strokeRect(extX, extY, extW, extH);
+
+  // Utbyggnad fönster (2 st)
+  const ewSize = Math.min(extW * 0.28, 24);
+  for (let i = 0; i < 2; i++) {
+    const wx = extX + (i + 0.5) * extW / 2 - ewSize / 2;
+    const wy = extY + extH * 0.3;
+    bp('rgba(255,255,255,0.8)', lw);
+    ctx.strokeRect(wx, wy, ewSize, ewSize * 0.75);
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.moveTo(wx + ewSize/2, wy); ctx.lineTo(wx + ewSize/2, wy + ewSize*0.75); ctx.stroke();
+  }
+
+  // Utbyggnad pulpettak (lutar svagt mot höger)
+  bp('rgba(255,255,255,0.9)', lw2);
   ctx.beginPath();
-  ctx.moveTo(houseX - 8, houseY);
-  ctx.lineTo(houseX + houseW / 2, houseY - roofH);
-  ctx.lineTo(houseX + houseW + 8, houseY);
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(extX, extY);
+  ctx.lineTo(extX + extW, extY - extH * 0.08);
+  ctx.stroke();
 
+  // ── Huvudkropp ──
+  bp('rgba(255,255,255,0.9)', lw2);
+  ctx.strokeRect(mainX, mainY, mainW, mainH);
+
+  // Vattenbräda (panel-textur: horisontella linjer)
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 0.8;
+  const panelH = MSCALE * 0.28;
+  for (let py2 = mainY + panelH; py2 < groundY; py2 += panelH) {
+    ctx.beginPath(); ctx.moveTo(mainX+1, py2); ctx.lineTo(mainX+mainW-1, py2); ctx.stroke();
+  }
+
+  // Fönster entréplan (2 grupperade, typiska 30-talsfönster)
+  const fW = mainW * 0.14, fH = mainH * 0.16;
+  const floorH = mainH / 2;
+  [ [0.22, 0.55], [0.45, 0.55], [0.68, 0.55],   // undervåning
+    [0.22, 0.12], [0.45, 0.12], [0.68, 0.12],   // övervåning
+  ].forEach(([fx, fy]) => {
+    const wx = mainX + fx * mainW - fW/2;
+    const wy = mainY + fy * mainH;
+    bp('rgba(255,255,255,0.85)', lw);
+    ctx.strokeRect(wx, wy, fW, fH);
+    // Spröjs (kors)
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(wx+fW/2, wy); ctx.lineTo(wx+fW/2, wy+fH);
+    ctx.moveTo(wx, wy+fH/2); ctx.lineTo(wx+fW, wy+fH/2);
+    ctx.stroke();
+  });
+
+  // Ytterdörr (centrerad, med farstukvist-antyd)
+  const dW = mainW * 0.09, dH = mainH * 0.22;
+  const dX = mainX + mainW * 0.5 - dW / 2;
+  bp('rgba(255,255,255,0.85)', lw);
+  ctx.strokeRect(dX, groundY - dH, dW, dH);
+  // Trappa
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 0.8;
+  for (let s = 1; s <= 3; s++) {
+    ctx.strokeRect(dX - s*3, groundY - s*4, dW + s*6, 4);
+  }
+
+  // Mellanbjälklag
+  bp('rgba(255,255,255,0.25)', 0.8);
+  ctx.beginPath(); ctx.moveTo(mainX, mainY + mainH/2); ctx.lineTo(mainX+mainW, mainY+mainH/2); ctx.stroke();
+
+  // Vindsfönster (rund med kors — typisk 30-talsstil)
+  const vfR = mainW * 0.035;
+  const vfX = mainX + mainW * 0.5, vfY = mainY + mainH * 0.06;
+  bp('rgba(255,255,255,0.8)', lw);
+  ctx.beginPath(); ctx.arc(vfX, vfY, vfR, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(vfX-vfR, vfY); ctx.lineTo(vfX+vfR, vfY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(vfX, vfY-vfR); ctx.lineTo(vfX, vfY+vfR); ctx.stroke();
+
+  // ── Sadeltak ──
+  const roofH = mainW * 0.38;
+  const ridgeX = mainX + mainW * 0.48;  // nockpunkt lite asymmetrisk
+  bp('rgba(255,255,255,0.95)', lw2);
+  ctx.beginPath();
+  ctx.moveTo(mainX - 6,        mainY);
+  ctx.lineTo(ridgeX,           mainY - roofH);
+  ctx.lineTo(mainX + mainW + 6, mainY);
+  ctx.stroke();
+  // Takfot-linje
+  bp('rgba(255,255,255,0.4)', 0.8);
+  ctx.beginPath(); ctx.moveTo(mainX-6, mainY); ctx.lineTo(mainX+mainW+6, mainY); ctx.stroke();
+  // Nocklinje (skraff för tegelpannor)
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 0.5;
+  const roofLines = 6;
+  for (let i = 1; i < roofLines; i++) {
+    const t = i / roofLines;
+    // vänster sida
+    ctx.beginPath();
+    ctx.moveTo(mainX - 6 + t * (ridgeX - mainX + 6), mainY - t * roofH);
+    ctx.lineTo(mainX - 6 + t * (ridgeX - mainX + 6) + (mainW + 12) / roofLines, mainY - t * roofH);
+    ctx.stroke();
+  }
+
+  // Skorsten
+  const chX = mainX + mainW * 0.35;
+  const chTopY = mainY - roofH * 0.55;
+  bp('rgba(255,255,255,0.75)', lw);
+  ctx.strokeRect(chX, chTopY - 10, 10, 10 + roofH * 0.25);
+
+  // ── Påbyggnad (gestreckat) ──
   if (showProposedSketch) {
     const addH = (state.story.height || 3.0) * MSCALE;
-    const proposedY = houseY - addH;
-
-    ctx.strokeStyle = '#3B82F6';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
-    ctx.strokeRect(houseX, proposedY, houseW, addH);
+    const propY = mainY - addH;
+    bp('rgba(147,197,253,0.9)', 1.5, [6, 4]);
+    ctx.strokeRect(mainX, propY, mainW, addH);
     ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(59,130,246,0.08)';
-    ctx.fillRect(houseX, proposedY, houseW, addH);
+    ctx.fillStyle = 'rgba(59,130,246,0.06)';
+    ctx.fillRect(mainX, propY, mainW, addH);
 
-    const newRoofH = houseW * 0.3;
-    ctx.strokeStyle = '#60A5FA';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
+    const newRoofH = mainW * 0.28;
+    bp('rgba(147,197,253,0.9)', 1.5, [6,4]);
     ctx.beginPath();
-    ctx.moveTo(houseX - 8, proposedY);
-    ctx.lineTo(houseX + houseW / 2, proposedY - newRoofH);
-    ctx.lineTo(houseX + houseW + 8, proposedY);
-    ctx.closePath();
+    ctx.moveTo(mainX - 6, propY);
+    ctx.lineTo(ridgeX, propY - newRoofH);
+    ctx.lineTo(mainX + mainW + 6, propY);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = '#60A5FA';
-    ctx.font = 'bold 11px Inter, sans-serif';
+    ctx.fillStyle = 'rgba(147,197,253,0.8)';
+    ctx.font = 'bold 10px Inter, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('+ ' + (state.story.height || 3.0).toFixed(1) + ' m påbyggnad', houseX + houseW / 2, proposedY - newRoofH - 10);
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('+ ' + (state.story.height || 3.0).toFixed(1) + ' m påbyggnad', mainX + mainW/2, propY - newRoofH - 6);
   }
 
-  ctx.strokeStyle = '#94a3b8';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 3]);
-  ctx.beginPath();
-  ctx.moveTo(houseX - 24, houseY);
-  ctx.lineTo(houseX - 24, groundY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = '10px Inter, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText(PROP.currentH + ' m', houseX - 28, (houseY + groundY) / 2 + 4);
+  // ── Måttlinjer ──
+  dim(mainX, groundY + 22, mainX + mainW, groundY + 22, PROP.buildingW + ' m', 'h');
+  dim(mainX + mainW, groundY + 22, mainX + totalPxW, groundY + 22, PROP.extW + ' m', 'h');
+  dim(mainX - 32, mainY, mainX - 32, groundY, PROP.currentH + ' m', 'v');
 
-  ctx.fillStyle = '#475569';
-  ctx.font = '10px Inter, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText('~' + PROP.buildingW + ' m bredd', houseX, H - 10);
+  // ── Etikett ──
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = '10px Inter, monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('VÄSTFASAD  1:100  ' + PROP.yearBuilt, startX, 12);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
