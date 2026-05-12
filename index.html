@@ -645,10 +645,15 @@
         <div class="sketch-toggle">
           <button class="height-btn active-blue" id="btn-sketch-current">Nuläge</button>
           <button class="height-btn" id="btn-sketch-proposed">Med tillägg</button>
+          <button class="height-btn" id="btn-sketch-streetview">📷 Gatuvy</button>
         </div>
         <div id="sketch-canvas-wrap">
           <canvas id="sketch-canvas"></canvas>
           <div class="canvas-overlay-tl">Elevationsvy — västfasad</div>
+          <iframe id="streetview-frame"
+            style="display:none;position:absolute;inset:0;width:100%;height:100%;border:none;border-radius:10px;"
+            loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+            src=""></iframe>
         </div>
       </div>
     </div>
@@ -1609,18 +1614,41 @@ document.querySelectorAll('#plan-floor-toggle .height-btn').forEach(btn => {
 
 // ── Sketch toggle ──
 let showProposedSketch = false;
-document.getElementById('btn-sketch-current').addEventListener('click', () => {
-  showProposedSketch = false;
-  document.getElementById('btn-sketch-current').className = 'height-btn active-blue';
-  document.getElementById('btn-sketch-proposed').className = 'height-btn';
-  drawElevation();
-});
-document.getElementById('btn-sketch-proposed').addEventListener('click', () => {
-  showProposedSketch = true;
-  document.getElementById('btn-sketch-current').className = 'height-btn';
-  document.getElementById('btn-sketch-proposed').className = 'height-btn active-blue';
-  drawElevation();
-});
+
+function setSketchMode(mode) {
+  const canvas = document.getElementById('sketch-canvas');
+  const overlay = document.querySelector('#sketch-canvas-wrap .canvas-overlay-tl');
+  const frame = document.getElementById('streetview-frame');
+  const btnCurrent = document.getElementById('btn-sketch-current');
+  const btnProposed = document.getElementById('btn-sketch-proposed');
+  const btnStreet = document.getElementById('btn-sketch-streetview');
+
+  if (mode === 'streetview') {
+    canvas.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+    // Build Street View embed URL — gratis format utan API-nyckel
+    const svUrl = `https://maps.google.com/maps?q=&layer=c&cbll=${PROP.lat},${PROP.lng}&cbp=12,270,,0,0&output=svembed`;
+    frame.src = svUrl;
+    frame.style.display = 'block';
+    btnCurrent.className = 'height-btn';
+    btnProposed.className = 'height-btn';
+    btnStreet.className = 'height-btn active-blue';
+  } else {
+    frame.style.display = 'none';
+    frame.src = '';
+    canvas.style.display = 'block';
+    if (overlay) overlay.style.display = 'block';
+    showProposedSketch = mode === 'proposed';
+    btnCurrent.className = 'height-btn' + (mode === 'current' ? ' active-blue' : '');
+    btnProposed.className = 'height-btn' + (mode === 'proposed' ? ' active-blue' : '');
+    btnStreet.className = 'height-btn';
+    drawElevation();
+  }
+}
+
+document.getElementById('btn-sketch-current').addEventListener('click', () => setSketchMode('current'));
+document.getElementById('btn-sketch-proposed').addEventListener('click', () => setSketchMode('proposed'));
+document.getElementById('btn-sketch-streetview').addEventListener('click', () => setSketchMode('streetview'));
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SPEC PANEL BUILDER
